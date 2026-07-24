@@ -2,9 +2,9 @@
   "id": "ribbon-hider",
   "name": "Ribbon Hider",
   "version": "1.0.0",
-  "minAppVersion": "0.15.0",
+  "minAppVersion": "1.4.0",
   "description": "Hide ribbon buttons by right-clicking on them, and manage them in settings.",
   "author": "Lucy Roh",
-  "authorUrl": "https://github.com/lucyroh",
+  "authorUrl": "https://github.com/lucytheboss/obsidian-ribbon-hider",
   "isDesktopOnly": true
 }

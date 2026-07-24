@@ -10,7 +10,7 @@ const DEFAULT_SETTINGS: RibbonHiderSettings = {
 
 export default class RibbonHiderPlugin extends Plugin {
 	settings: RibbonHiderSettings;
-	styleEl: HTMLStyleElement;
+	observer: MutationObserver;
 
 	async onload() {
 		await this.loadSettings();
@@ -18,10 +18,13 @@ export default class RibbonHiderPlugin extends Plugin {
 		// Add settings tab
 		this.addSettingTab(new RibbonHiderSettingTab(this.app, this));
 
-		// Initialize styles for hiding elements
-		this.styleEl = document.createElement('style');
-		this.styleEl.id = 'obsidian-ribbon-hider-styles';
-		document.head.appendChild(this.styleEl);
+		// Set up mutation observer to dynamically hide buttons as the DOM changes
+		this.observer = new MutationObserver(() => {
+			this.updateStyles();
+		});
+		this.observer.observe(document.body, { childList: true, subtree: true });
+		
+		// Apply initial hiding
 		this.updateStyles();
 
 		// Register contextmenu event listener on the document
@@ -62,9 +65,12 @@ export default class RibbonHiderPlugin extends Plugin {
 				item.setTitle('Ribbon Hider settings...')
 					.setIcon('settings')
 					.onClick(async () => {
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
 						const setting = (this.app as any).setting;
 						if (setting) {
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-call
 							await setting.open();
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-call
 							setting.openTabById(this.manifest.id);
 						}
 					});
@@ -75,10 +81,19 @@ export default class RibbonHiderPlugin extends Plugin {
 	}
 
 	onunload() {
-		// Clean up injected style element
-		if (this.styleEl) {
-			this.styleEl.remove();
+		// Disconnect DOM observer
+		if (this.observer) {
+			this.observer.disconnect();
 		}
+
+		// Restore visibility of all hidden buttons
+		const items = document.querySelectorAll('.workspace-ribbon-item, .side-dock-ribbon-action, .clickable-icon');
+		items.forEach((item) => {
+			const htmlItem = item as HTMLElement;
+			if (htmlItem.style.display === 'none') {
+				htmlItem.style.removeProperty('display');
+			}
+		});
 	}
 
 	async loadSettings() {
@@ -106,12 +121,18 @@ export default class RibbonHiderPlugin extends Plugin {
 	}
 
 	updateStyles() {
-		let css = '';
-		for (const label of this.settings.hiddenButtons) {
-			const escapedLabel = label.replace(/"/g, '\\"');
-			css += `.workspace-ribbon [aria-label="${escapedLabel}"], .side-dock-ribbon [aria-label="${escapedLabel}"] { display: none !important; }\n`;
-		}
-		this.styleEl.textContent = css;
+		const items = document.querySelectorAll('.workspace-ribbon-item, .side-dock-ribbon-action, .clickable-icon');
+		items.forEach((item) => {
+			const htmlItem = item as HTMLElement;
+			const label = htmlItem.getAttribute('aria-label');
+			if (label && this.settings.hiddenButtons.includes(label)) {
+				htmlItem.style.setProperty('display', 'none', 'important');
+			} else {
+				if (htmlItem.style.display === 'none') {
+					htmlItem.style.removeProperty('display');
+				}
+			}
+		});
 	}
 }
 
@@ -127,7 +148,8 @@ class RibbonHiderSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'Ribbon Hider Settings' });
+		new Setting(containerEl).setName('Ribbon Hider Settings').setHeading();
+		
 		containerEl.createEl('p', { 
 			text: 'Right-click any ribbon button in the left-side panel to hide it. Use the options below to restore hidden buttons.',
 			cls: 'setting-item-description'
@@ -170,7 +192,7 @@ class RibbonHiderSettingTab extends PluginSettingTab {
 			label => !uniqueDomLabels.includes(label)
 		);
 
-		containerEl.createEl('h3', { text: 'Active Ribbon Buttons' });
+		new Setting(containerEl).setName('Active Ribbon Buttons').setHeading();
 
 		if (uniqueDomLabels.length === 0) {
 			containerEl.createEl('p', { text: 'No active ribbon buttons found.', cls: 'setting-item-description' });
@@ -195,7 +217,8 @@ class RibbonHiderSettingTab extends PluginSettingTab {
 		}
 
 		if (inactiveLabels.length > 0) {
-			containerEl.createEl('h3', { text: 'Inactive Hidden Buttons' });
+			new Setting(containerEl).setName('Inactive Hidden Buttons').setHeading();
+			
 			containerEl.createEl('p', { 
 				text: 'These buttons were previously hidden but are not currently present in the ribbon (e.g., from disabled plugins).',
 				cls: 'setting-item-description'

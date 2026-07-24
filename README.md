@@ -2,7 +2,7 @@
 
 An Obsidian plugin that lets you declutter your workspace by hiding ribbon buttons (on the left sidebar) with a simple right-click.
 
-Created by [Lucy Roh](https://github.com/lucyroh).
+Created by [Lucy Roh](https://github.com/lucytheboss).
 
 ## Features
 
@@ -17,11 +17,11 @@ Created by [Lucy Roh](https://github.com/lucyroh).
 ## Installation
 
 ### Manual Installation
-1. Go to the [Releases](https://github.com/lucyroh/obsidian-ribbon-hider/releases) page and download the latest release files:
+1. Go to the [Releases](https://github.com/lucytheboss/obsidian-ribbon-hider/releases) page and download the latest release files:
    - `main.js`
    - `manifest.json`
    - `styles.css`
-2. Create a folder named `obsidian-ribbon-hider` inside your vault's plugins folder: `<your-vault>/.obsidian/plugins/obsidian-ribbon-hider/`.
+2. Create a folder named `ribbon-hider` inside your vault's plugins folder: `<your-vault>/.obsidian/plugins/ribbon-hider/`.
 3. Move the downloaded files into that folder.
 4. Open Obsidian and navigate to **Settings > Community plugins**. Click the refresh button, then toggle the switch next to **Ribbon Hider** to enable it.
 
