@@ -18,14 +18,19 @@ export default class RibbonHiderPlugin extends Plugin {
 		// Add settings tab
 		this.addSettingTab(new RibbonHiderSettingTab(this.app, this));
 
-		// Set up mutation observer to dynamically hide buttons as the DOM changes
-		this.observer = new MutationObserver(() => {
-			this.updateStyles();
-		});
-		this.observer.observe(document.body, { childList: true, subtree: true });
+		// Set up observer to only observe the ribbon containers (limiting scope to prevent side effects)
+		this.setupObserver();
 		
 		// Apply initial hiding
 		this.updateStyles();
+
+		// Re-initialize the observer on workspace layout changes (covers rendering of new ribbons)
+		this.registerEvent(
+			this.app.workspace.on('layout-change', () => {
+				this.setupObserver();
+				this.updateStyles();
+			})
+		);
 
 		// Register contextmenu event listener on the document
 		this.registerDomEvent(document, 'contextmenu', (event: MouseEvent) => {
@@ -86,8 +91,8 @@ export default class RibbonHiderPlugin extends Plugin {
 			this.observer.disconnect();
 		}
 
-		// Restore visibility of all hidden buttons
-		const items = document.querySelectorAll('.workspace-ribbon-item, .side-dock-ribbon-action, .clickable-icon');
+		// Restore visibility of all hidden buttons (scoped to ribbon containers to avoid touching unrelated elements)
+		const items = document.querySelectorAll('.workspace-ribbon .workspace-ribbon-item, .workspace-ribbon .clickable-icon, .side-dock-ribbon .side-dock-ribbon-action, .side-dock-ribbon .clickable-icon');
 		items.forEach((item) => {
 			const htmlItem = item as HTMLElement;
 			if (htmlItem.style.display === 'none') {
@@ -120,8 +125,37 @@ export default class RibbonHiderPlugin extends Plugin {
 		}
 	}
 
+	setupObserver() {
+		// Disconnect existing observer if active
+		if (this.observer) {
+			this.observer.disconnect();
+		}
+
+		// Scope the MutationObserver specifically to ribbon containers
+		const ribbonContainers = document.querySelectorAll('.workspace-ribbon, .side-dock-ribbon');
+		if (ribbonContainers.length > 0) {
+			this.observer = new MutationObserver(() => {
+				this.updateStyles();
+			});
+			ribbonContainers.forEach(container => {
+				this.observer.observe(container, { childList: true, subtree: true });
+			});
+		} else {
+			// Fallback: observe document.body until the ribbon containers are loaded in DOM
+			this.observer = new MutationObserver(() => {
+				const ribbonExists = document.querySelector('.workspace-ribbon, .side-dock-ribbon');
+				if (ribbonExists) {
+					this.setupObserver();
+					this.updateStyles();
+				}
+			});
+			this.observer.observe(document.body, { childList: true, subtree: true });
+		}
+	}
+
 	updateStyles() {
-		const items = document.querySelectorAll('.workspace-ribbon-item, .side-dock-ribbon-action, .clickable-icon');
+		// Limit style modifications to elements within the ribbon containers to prevent breaking properties UI or other views
+		const items = document.querySelectorAll('.workspace-ribbon .workspace-ribbon-item, .workspace-ribbon .clickable-icon, .side-dock-ribbon .side-dock-ribbon-action, .side-dock-ribbon .clickable-icon');
 		items.forEach((item) => {
 			const htmlItem = item as HTMLElement;
 			const label = htmlItem.getAttribute('aria-label');
