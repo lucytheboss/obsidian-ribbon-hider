@@ -3,3 +3,5 @@ dist/
 main.js
 *.map
 .DS_Store
+data.json
+

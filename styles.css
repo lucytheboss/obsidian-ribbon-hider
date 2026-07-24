@@ -1,0 +1,17 @@
+/* Styles for Obsidian Ribbon Hider plugin */
+.ribbon-hider-setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5em 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ribbon-hider-setting-name {
+  font-weight: bold;
+}
+
+.ribbon-hider-setting-desc {
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
