@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-ribbon-hider",
+  "name": "ribbon-hider",
   "version": "1.0.0",
   "description": "Hide ribbon buttons by right-clicking on them in Obsidian.",
   "main": "main.js",
