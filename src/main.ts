@@ -83,6 +83,100 @@ export default class RibbonHiderPlugin extends Plugin {
 
 			menu.showAtPosition(event);
 		});
+
+		// Support touch-hold (long press) for mobile and iPad screens
+		let touchTimeout: any = null;
+		let touchStartX = 0;
+		let touchStartY = 0;
+
+		this.registerDomEvent(document, 'touchstart', (event: TouchEvent) => {
+			const target = event.target as HTMLElement;
+
+			// Check if we are inside a ribbon container
+			const ribbonContainer = target.closest('.workspace-ribbon, .side-dock-ribbon');
+			if (!ribbonContainer) return;
+
+			// Find the closest ribbon item/button
+			const ribbonAction = target.closest('.side-dock-ribbon-action, .workspace-ribbon-item, .clickable-icon');
+			if (!ribbonAction) return;
+
+			const label = ribbonAction.getAttribute('aria-label');
+			if (!label) return;
+
+			// Exclude collapse/expand buttons from touch action
+			const lowerLabel = label.toLowerCase();
+			if (lowerLabel.includes('collapse') || lowerLabel.includes('expand')) {
+				return;
+			}
+
+			const touch = event.touches[0];
+			touchStartX = touch.clientX;
+			touchStartY = touch.clientY;
+
+			// Start a timer for a 600ms hold (long-press)
+			touchTimeout = setTimeout(() => {
+				// Prevent default touch behaviors (like standard context menu)
+				event.preventDefault();
+
+				const menu = new Menu();
+				menu.addItem((item) => {
+					item.setTitle(`Hide "${label}"`)
+						.setIcon('eye-off')
+						.onClick(async () => {
+							await this.hideButton(label);
+							new Notice(`Hid "${label}" button. Manage in Ribbon Hider settings.`);
+						});
+				});
+
+				menu.addItem((item) => {
+					item.setTitle('Ribbon Hider settings...')
+						.setIcon('settings')
+						.onClick(async () => {
+							// eslint-disable-next-line @typescript-eslint/no-explicit-any
+							const setting = (this.app as any).setting;
+							if (setting) {
+								// eslint-disable-next-line @typescript-eslint/no-unsafe-call
+								await setting.open();
+								// eslint-disable-next-line @typescript-eslint/no-unsafe-call
+								setting.openTabById(this.manifest.id);
+							}
+						});
+				});
+
+				// Display context menu at touch position
+				menu.showAtPosition({ x: touch.clientX, y: touch.clientY });
+
+				// Haptic vibration feedback on touch hold
+				if (navigator.vibrate) {
+					navigator.vibrate(50);
+				}
+			}, 600);
+		});
+
+		this.registerDomEvent(document, 'touchmove', (event: TouchEvent) => {
+			if (touchTimeout) {
+				const touch = event.touches[0];
+				// If touch moves significantly, cancel the hold detection
+				if (Math.abs(touch.clientX - touchStartX) > 10 || Math.abs(touch.clientY - touchStartY) > 10) {
+					clearTimeout(touchTimeout);
+					touchTimeout = null;
+				}
+			}
+		});
+
+		this.registerDomEvent(document, 'touchend', () => {
+			if (touchTimeout) {
+				clearTimeout(touchTimeout);
+				touchTimeout = null;
+			}
+		});
+
+		this.registerDomEvent(document, 'touchcancel', () => {
+			if (touchTimeout) {
+				clearTimeout(touchTimeout);
+				touchTimeout = null;
+			}
+		});
 	}
 
 	onunload() {
