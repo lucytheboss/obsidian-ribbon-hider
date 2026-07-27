@@ -2,9 +2,9 @@ import {
 	App,
 	Plugin,
 	PluginSettingTab,
-	Setting,
 	Menu,
 	Notice,
+	type Setting,
 	type MenuPositionDef,
 	type SettingDefinition,
 	type SettingDefinitionGroup,
@@ -42,6 +42,9 @@ const RIBBON_ITEMS = [
 ].join(', ');
 
 const RIBBON_ACTIONS = '.side-dock-ribbon-action, .workspace-ribbon-item, .clickable-icon';
+
+/** Applied to hidden ribbon buttons; the rule itself lives in styles.css. */
+const HIDDEN_CLASS = 'ribbon-hider-hidden';
 
 /** Prefix for the declarative-settings control keys, e.g. `visible:Open graph view`. */
 const VISIBILITY_KEY_PREFIX = 'visible:';
@@ -87,13 +90,13 @@ export default class RibbonHiderPlugin extends Plugin {
 		});
 
 		// Support touch-hold (long press) for mobile and iPad screens
-		let touchTimeout: ReturnType<typeof setTimeout> | null = null;
+		let touchTimeout: number | null = null;
 		let touchStartX = 0;
 		let touchStartY = 0;
 
 		const cancelTouchHold = () => {
 			if (touchTimeout !== null) {
-				clearTimeout(touchTimeout);
+				window.clearTimeout(touchTimeout);
 				touchTimeout = null;
 			}
 		};
@@ -107,7 +110,7 @@ export default class RibbonHiderPlugin extends Plugin {
 			touchStartY = touch.clientY;
 
 			// Start a timer for a 600ms hold (long-press)
-			touchTimeout = setTimeout(() => {
+			touchTimeout = window.setTimeout(() => {
 				touchTimeout = null;
 
 				// Prevent default touch behaviors (like standard context menu)
@@ -145,9 +148,7 @@ export default class RibbonHiderPlugin extends Plugin {
 
 		// Restore visibility of all hidden buttons (scoped to ribbon containers to avoid touching unrelated elements)
 		document.querySelectorAll<HTMLElement>(RIBBON_ITEMS).forEach((item) => {
-			if (item.style.display === 'none') {
-				item.style.removeProperty('display');
-			}
+			item.removeClass(HIDDEN_CLASS);
 		});
 	}
 
@@ -198,7 +199,9 @@ export default class RibbonHiderPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		// loadData() is typed as `any`; narrow it before merging over the defaults.
+		const stored = await this.loadData() as Partial<RibbonHiderSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
 	}
 
 	async saveSettings() {
@@ -277,14 +280,10 @@ export default class RibbonHiderPlugin extends Plugin {
 	}
 
 	updateStyles() {
-		// Limit style modifications to elements within the ribbon containers to prevent breaking properties UI or other views
+		// Limit changes to elements within the ribbon containers to prevent breaking properties UI or other views
 		document.querySelectorAll<HTMLElement>(RIBBON_ITEMS).forEach((item) => {
 			const label = item.getAttribute('aria-label');
-			if (label && this.isHidden(label)) {
-				item.style.setProperty('display', 'none', 'important');
-			} else if (item.style.display === 'none') {
-				item.style.removeProperty('display');
-			}
+			item.toggleClass(HIDDEN_CLASS, !!label && this.isHidden(label));
 		});
 	}
 }
@@ -298,9 +297,8 @@ class RibbonHiderSettingTab extends PluginSettingTab {
 	}
 
 	/**
-	 * Declarative settings (Obsidian 1.13.0+). Providing these makes the plugin's
-	 * settings searchable; on 1.13.0+ they also drive rendering via the inherited
-	 * `display()`. Older versions ignore this and fall back to `display()` below.
+	 * Declarative settings. The inherited `display()` renders from these, and
+	 * Obsidian indexes them so the toggles show up in settings search.
 	 */
 	getSettingDefinitions(): SettingDefinitionItem[] {
 		const { active, inactive } = this.plugin.getRibbonLabels();
@@ -314,7 +312,6 @@ class RibbonHiderSettingTab extends PluginSettingTab {
 		const definitions: SettingDefinitionGroup[] = [
 			{
 				type: 'group',
-				heading: 'Ribbon Hider',
 				items: [
 					{
 						name: 'How it works',
@@ -392,95 +389,5 @@ class RibbonHiderSettingTab extends PluginSettingTab {
 
 		// Unhiding an inactive button moves it between groups, so rebuild.
 		this.update();
-	}
-
-	display(): void {
-		// Obsidian 1.13.0+ renders from getSettingDefinitions(); older versions have
-		// no base implementation, so fall through to the imperative layout below.
-		const renderDeclarative = super.display as (() => void) | undefined;
-		if (renderDeclarative) {
-			renderDeclarative.call(this);
-			return;
-		}
-
-		const { containerEl } = this;
-		containerEl.empty();
-
-		new Setting(containerEl).setName('Ribbon Hider').setHeading();
-
-		containerEl.createEl('p', {
-			text: 'Right-click (or touch and hold) any ribbon button in the side panel to hide it. Use the options below to restore hidden buttons.',
-			cls: 'setting-item-description'
-		});
-
-		// Unhide all buttons helper
-		if (this.plugin.settings.hiddenButtons.length > 0) {
-			new Setting(containerEl)
-				.setName('Unhide all buttons')
-				.setDesc('Restore visibility for all hidden ribbon buttons.')
-				.addButton(button => {
-					button.setButtonText('Unhide all')
-						.setCta()
-						.onClick(async () => {
-							await this.plugin.unhideAll();
-							new Notice('All ribbon buttons unhidden.');
-							this.display();
-						});
-				});
-		}
-
-		const { active, inactive } = this.plugin.getRibbonLabels();
-
-		new Setting(containerEl).setName('Active ribbon buttons').setHeading();
-
-		if (active.length === 0) {
-			containerEl.createEl('p', {
-				text: 'No active ribbon buttons found.',
-				cls: 'setting-item-description'
-			});
-		} else {
-			for (const label of active) {
-				const isHidden = this.plugin.isHidden(label);
-				new Setting(containerEl)
-					.setName(label)
-					.setDesc(isHidden ? 'Currently hidden' : 'Currently visible')
-					.addToggle(toggle => {
-						toggle.setValue(!isHidden)
-							.onChange(async (value) => {
-								if (value) {
-									await this.plugin.unhideButton(label);
-								} else {
-									await this.plugin.hideButton(label);
-								}
-								this.display();
-							});
-					});
-			}
-		}
-
-		if (inactive.length > 0) {
-			new Setting(containerEl).setName('Inactive hidden buttons').setHeading();
-
-			containerEl.createEl('p', {
-				text: 'These buttons were previously hidden but are not currently present in the ribbon (e.g. from disabled plugins).',
-				cls: 'setting-item-description'
-			});
-
-			for (const label of inactive) {
-				new Setting(containerEl)
-					.setName(label)
-					.setDesc('Not found in active ribbon')
-					.addToggle(toggle => {
-						toggle.setValue(false) // It's hidden
-							.onChange(async (value) => {
-								if (value) {
-									// Turning it "ON" means unhide / remove from hidden list
-									await this.plugin.unhideButton(label);
-									this.display();
-								}
-							});
-					});
-			}
-		}
 	}
 }

@@ -4,9 +4,13 @@ An Obsidian plugin that lets you declutter your workspace by hiding ribbon butto
 
 Created by [Lucy Roh](https://github.com/lucytheboss).
 
+## Requirements
+
+Obsidian **1.13.0** or later, on desktop or mobile.
+
 ## Features
 
-- **Right-Click to Hide**: Simply right-click on any ribbon button and select `Hide "[Button Name]"` to hide it immediately.
+- **Right-Click to Hide**: Simply right-click on any ribbon button — or touch and hold it on mobile — and select `Hide "[Button Name]"` to hide it immediately.
 - **Settings Dashboard**: A dedicated settings tab listing all active ribbon buttons, allowing you to easily toggle them back on.
 - **Unhide All**: A single button to restore all hidden ribbon items instantly.
 - **Orphan Cleanups**: Automatically tracks hidden buttons from disabled or removed plugins, allowing you to clean them up from settings.
