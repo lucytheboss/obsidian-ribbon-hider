@@ -1,7 +1,7 @@
 {
   "id": "ribbon-hider",
   "name": "Ribbon Hider",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.4.0",
   "description": "Hide ribbon buttons by right-clicking on them, and manage them in settings.",
   "author": "Lucy Roh",
